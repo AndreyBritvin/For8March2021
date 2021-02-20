@@ -32,10 +32,10 @@ def generateKeyboard(sizeX, sizeY):
 
 def start(update: Update, context: CallbackContext) -> None:
     global keyboard
-    if update.message.chat_id not in users:
-        users[update.message.chat_id] = "Nothing"
+    if update.message.chat_id not in list(usernames.keys()):
+        #usernames[update.message.chat_id][3] = "Nothing"
         usernames[update.message.chat_id] = [str(update.message.from_user.first_name),
-                                             0, -1]  # username, num of solved questions, num of question
+                                             0, -1, "Nothing"]  # username, num of solved questions, num of question
 
     """keyboard = [
         [
@@ -62,7 +62,7 @@ def button(update: Update, context: CallbackContext) -> None:
     if query.data == "MainMenu123":
         query.edit_message_text(text="Выберите задание",
                                 reply_markup=InlineKeyboardMarkup(keyboard))
-        users[query.message.chat.id] = "Nothing"
+        usernames[query.message.chat.id][3] = "Nothing"
 
     elif query.data in list(questions.keys()):
         isSolved = questions[query.data][1]
@@ -72,7 +72,7 @@ def button(update: Update, context: CallbackContext) -> None:
         query.edit_message_text(text=str(query.data)+toAppend,
                                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Вернуться к выбору заданий",
                                                                                          callback_data="MainMenu123")]]))
-        users[query.message.chat.id] = query.data
+        usernames[query.message.chat.id][3] = query.data
         usernames[query.message.chat.id][2] = list(questions.keys()).index(query.data)+1
         print(query.message.chat.id," ", usernames[query.message.chat.id][2])
 
@@ -84,7 +84,7 @@ def button(update: Update, context: CallbackContext) -> None:
             statistic += name + ": " + str(num) + "\n"
         statistic += "\nВыберите задание:"
         query.edit_message_text(text=statistic, reply_markup=InlineKeyboardMarkup(keyboard))
-    print(users)
+    print(usernames)
 
 
 def help_command(update: Update, context: CallbackContext) -> None:
@@ -97,33 +97,33 @@ def answers(update: Update, context: CallbackContext) -> None:
     print(update.message.text)
     # update.message.reply_text(update.message.text)
 
-    if users[update.message.chat_id] == "Nothing":  # answer without question
+    if usernames[update.message.chat_id][3] == "Nothing":  # answer without question
         update.message.reply_text("Выберите вопрос и дайте на него ответ")
 
     # elif
-    elif update.message.text in questions[users[update.message.chat_id]][0] and \
-            questions[users[update.message.chat_id]][1] == "":  # answer correct
+    elif update.message.text in questions[usernames[update.message.chat_id][3]][0] and \
+            questions[usernames[update.message.chat_id][3]][1] == "":  # answer correct
 
         questionNum = usernames[update.message.chat_id][2]
         i = (questionNum-1) // Y
         j = questionNum % Y -1
         print(i,j)
-        questions[users[update.message.chat_id]][1] = str(update.message.from_user.first_name)
+        questions[usernames[update.message.chat_id][3]][1] = str(update.message.from_user.first_name)
         """
-        questions[users[update.message.chat_id] + "\n\nРешено " + str(update.message.from_user.first_name)] = questions[
-            users[update.message.chat_id]]
-        del questions[users[update.message.chat_id]]
+        questions[usernames[update.message.chat_id][3] + "\n\nРешено " + str(update.message.from_user.first_name)] = questions[
+            usernames[update.message.chat_id][3]]
+        del questions[usernames[update.message.chat_id][3]]
 """
         keyboard[i][j] = InlineKeyboardButton("✅",
-                                              callback_data=users[update.message.chat_id])
+                                              callback_data=usernames[update.message.chat_id][3])
 
         usernames[update.message.chat_id][1] = usernames[update.message.chat_id][1] + 1  # num of correct answers
         usernames[update.message.chat_id][2] = -1  # current ques
-        users[update.message.chat_id] = "Nothing"
+        usernames[update.message.chat_id][3] = "Nothing"
 
         update.message.reply_text("Правильный ответ. Выбирайте следующее задание:",
                                   reply_markup=InlineKeyboardMarkup(keyboard))
-    elif questions[users[update.message.chat_id]][1] != "":
+    elif questions[usernames[update.message.chat_id][3]][1] != "":
         update.message.reply_text("На этот вопрос уже ответили. Решайте другие", reply_markup=InlineKeyboardMarkup(keyboard))
     else:  # answer incorrect
         update.message.reply_text("Ответ неверный, попробуйте ещё")
@@ -132,9 +132,9 @@ def restartTotal():
     generateKeyboard(X, Y)
     for i in list(questions.keys()):
         questions[i][1] = ""
-    for i in list(users.keys()):
-        users[i] = "Nothing"
-    
+    for i in list(usernames.keys()):
+        usernames[i][3] = "Nothing"
+
 
 def main():
     generateKeyboard(X, Y)
@@ -146,8 +146,8 @@ def main():
     updater.dispatcher.add_handler(CommandHandler('help', help_command))
 
     updater.dispatcher.add_handler(CommandHandler('restartTotal', restartTotal))
-    updater.dispatcher.add_handler(CommandHandler('help', help_command))
-    updater.dispatcher.add_handler(CommandHandler('help', help_command))
+   # updater.dispatcher.add_handler(CommandHandler('help', help_command))
+   # updater.dispatcher.add_handler(CommandHandler('help', help_command))
 
 
     updater.dispatcher.add_handler(MessageHandler(Filters.text, answers))
