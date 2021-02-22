@@ -35,7 +35,7 @@ def generateKeyboard(sizeX, sizeY):
 
     for i in range(sizeX):
         for j in range(sizeY):
-            keyboard[i][j] = InlineKeyboardButton(str(sizeY * (i) + j + 1) + "❌",
+            keyboard[i][j] = InlineKeyboardButton(str(sizeY * (i) + j + 1), #+ "❌",
                                                   callback_data=list(questions.keys())[sizeY * i + j])
     keyboard.append([InlineKeyboardButton("Посмотреть статистику", callback_data="stat")])
     return keyboard
@@ -61,8 +61,8 @@ def start(update: Update, context: CallbackContext) -> None:
 
     update.message.reply_text('Привет!\n'
                               'Сначала вступи или создай команду:\n'
-                              'Создать команду: /createTeam _Название команды_\n'
-                              'Вступить в уже созданную: /joinTeam _Название команды_'
+                              'Создать команду: /createTeam _Название команды_ (на одной строчке)\n'
+                              'Вступить в уже созданную: /joinTeam _Название команды_ (также на одной строчке)'
                               )  # , reply_markup=reply_markup)
 
 
@@ -76,20 +76,20 @@ def button(update: Update, context: CallbackContext) -> None:
     print(query.data)
 
     if query.data == "MainMenu123":
-        query.edit_message_text(text="Выберите задание",
+        query.edit_message_text(text="Выберите задание и дайте на него ответ",
                                 reply_markup=InlineKeyboardMarkup(teams[getNameById(query.message.chat.id, teams)][0]))
         usernames[query.message.chat.id][3] = "Nothing"
 
     elif query.data in list(questions.keys()):
-
-        isSolved = questions[query.data][1]
+        #print(questions[query.data])
+        isSolved = questions[query.data][2]
         toAppend = ""
         print(getNameById(query.message.chat.id, isSolved))
         print(isSolved)
         if getNameById(query.message.chat.id, teams) in list(isSolved.keys()):
-            toAppend = "\n\nРешено " + usernames[isSolved[getNameById(query.message.chat.id, teams)][1][0]][0]
+            toAppend = "\n\nЭто задание было решено " + usernames[isSolved[getNameById(query.message.chat.id, teams)][1][0]][0]
 
-        query.edit_message_text(text=str(query.data) + toAppend,
+        query.edit_message_text(text=str(questions[query.data][0]) + toAppend,
                                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Вернуться к выбору заданий",
                                                                                          callback_data="MainMenu123")]]))
         usernames[query.message.chat.id][3] = query.data
@@ -97,20 +97,22 @@ def button(update: Update, context: CallbackContext) -> None:
         print(query.message.chat.id, " ", usernames[query.message.chat.id][2])
 
     elif query.data == "stat":
-        statistic = "Вот кто сколько решил:\n"
+        statistic = "Статистика решенных задач по командам:\n"
         for i in list(teams.keys()):
             # name = teams[i][1]
             summa = teams[i][2]
 
             statistic += str(i) + ": " + str(summa) + "\n"
-        statistic += "\nВыберите задание:"
+        statistic += "\nВыберите задание и дайте на него ответ:"
         query.edit_message_text(text=statistic,
                                 reply_markup=InlineKeyboardMarkup(teams[getNameById(query.message.chat.id, teams)][0]))
     print(usernames)
 
 
 def help_command(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text("Хай! Тут проходит квест для 8'В'. Чтобы начать напиши /start")
+    update.message.reply_text("Хай! Тут проходит квест для 8'В'. Чтобы начать напиши /start\n затем создай команду"
+                              " или присоединись к уже готовой и решай задания. Удачи!"
+                              "(подробности при написании /start)")
 
 
 def answers(update: Update, context: CallbackContext) -> None:
@@ -122,17 +124,17 @@ def answers(update: Update, context: CallbackContext) -> None:
     if usernames[update.message.chat_id][3] == "Nothing":  # answer without question
         update.message.reply_text("Выберите вопрос и дайте на него ответ")
 
-    elif update.message.text in questions[usernames[update.message.chat_id][3]][0] and \
+    elif update.message.text in questions[usernames[update.message.chat_id][3]][1] and \
             getNameById(update.message.chat_id, teams) != getNameById(update.message.chat_id,
                                                                       questions[usernames[update.message.chat_id][3]][
-                                                                          1]):
+                                                                          2]):
         # str(update.message.chat_id) not in questions[usernames[update.message.chat_id][3]][1]:  # answer correct
 
         questionNum = usernames[update.message.chat_id][2]
         i = (questionNum - 1) // Y
         j = questionNum % Y - 1
         print(i, j)
-        questions[usernames[update.message.chat_id][3]][1][getNameById(update.message.chat_id, teams)] = ["", [
+        questions[usernames[update.message.chat_id][3]][2][getNameById(update.message.chat_id, teams)] = ["", [
             update.message.chat_id]]
         """
         questions[usernames[update.message.chat_id][3] + "\n\nРешено " + str(update.message.from_user.first_name)] = questions[
@@ -152,17 +154,18 @@ def answers(update: Update, context: CallbackContext) -> None:
         usernames[update.message.chat_id][2] = -1  # current ques
         usernames[update.message.chat_id][3] = "Nothing"
 
-        update.message.reply_text("Правильный ответ. Выбирайте следующее задание:",
+        update.message.reply_text("Правильный ответ ✅ \n\nВыбирайте следующее задание:",
                                   reply_markup=InlineKeyboardMarkup(
                                       teams[getNameById(update.message.chat_id, teams)][0]))
 
     elif getNameById(update.message.chat_id, teams) == getNameById(update.message.chat_id,
-                                                                   questions[usernames[update.message.chat_id][3]][1]):
-        update.message.reply_text("На этот вопрос уже ответили. Решайте другие",
+                                                                   questions[usernames[update.message.chat_id][3]][2]):
+        update.message.reply_text("На этот вопрос уже ответил другой член команды. Возвращайтесь к выбору заданий "
+                                  "и решайте другое :)",
                                   reply_markup=InlineKeyboardMarkup(
                                       teams[getNameById(update.message.chat_id, teams)][0]))
     else:  # answer incorrect
-        update.message.reply_text("Ответ неверный, попробуйте ещё")
+        update.message.reply_text("Ответ неверный❌ \nПопробуйте ещё")
 
 
 def restartTotal(update: Update, context: CallbackContext) -> None:
@@ -178,29 +181,55 @@ def restartTotal(update: Update, context: CallbackContext) -> None:
 
 def createTeam(update: Update, context: CallbackContext) -> None:
     print(update.message.text)
-    name = str(update.message.text).split("/createTeam ")[1]
-    print(name)
-    if getNameById(update.message.chat_id, teams) == None:
-        teams[name] = [generateKeyboard(X, Y), [update.message.chat_id], 0]
+    name = {}
+    try:
+        name = str(update.message.text).split("/createTeam ")[1]
+    except IndexError:
+        update.message.reply_text("Для создания команды напишите /createTeam _Название команды_ (на одной строчке!)")
     else:
-        teams[name] = [generateKeyboard(X, Y), [], 0]
-    update.message.reply_text("Команда " + name + " создана. \nВыбирай задание:",
-                              reply_markup=InlineKeyboardMarkup(teams[name][0]))
+        print(name)
+        if getNameById(update.message.chat_id, teams) == None:
+            teams[name] = [generateKeyboard(X, Y), [update.message.chat_id], 0]
+            update.message.reply_text("Команда " + name + " создана. Вы автоматически стали ее членом."
+                                                          " \nВыберите задание и дайте на него ответ:",
+                                      reply_markup=InlineKeyboardMarkup(teams[name][0]))
+
+        else:
+            if(name not in list(teams.keys())):
+                teams[name] = [generateKeyboard(X, Y), [], 0]
+                update.message.reply_text("Команда " + name + " создана. Вы не стали ее членом автоматически, "
+                                                          "потому что уже состоите в другой команде."
+                                                          " Для вступления в эту команду, напишите /joinTeam "
+                                                      +name+" (на одной строчке!)")
+            else:
+                update.message.reply_text("Команда " + name + " уже существует."
+                                                              " Для вступления в эту команду, напишите /joinTeam "
+                                          + name + " (на одной строчке!)")
 
 
 def joinTeam(update: Update, context: CallbackContext) -> None:
     print(update.message.text)
-    name = update.message.text.split("/joinTeam ")[1]
-    print(name)
-    for i in list(teams.keys()):
-        try:
-            teams[i][1].remove(update.message.chat_id)
-        except ValueError:
-            continue
+    name = {}
+    try:
+        name = update.message.text.split("/joinTeam ")[1]
+    except IndexError:
+        update.message.reply_text("Для вступления в команду напишите /joinTeam _Название команды_ (на одной строчке!)")
 
-    teams[name][1].append(update.message.chat_id)
-    update.message.reply_text("Вы вступили в команду " + name + "\nВыбирай задание:",
-                              reply_markup=InlineKeyboardMarkup(teams[name][0]))
+    else:
+        print(name)
+        for i in list(teams.keys()):
+            try:
+                teams[i][1].remove(update.message.chat_id)
+            except ValueError:
+                continue
+        try:
+            teams[name][1].append(update.message.chat_id)
+        except KeyError:
+            update.message.reply_text("Такой команды не существует. Для вступления в уже существующую команду"
+                                      " напишите /joinTeam _Название команды_ (на одной строчке!)")
+        else:
+            update.message.reply_text("Вы вступили в команду " + name + "\nВыберите задание и дайте на него ответ:",
+                                  reply_markup=InlineKeyboardMarkup(teams[name][0]))
 
 
 def status(update: Update, context: CallbackContext) -> None:

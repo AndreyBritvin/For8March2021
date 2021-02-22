@@ -12,5 +12,5 @@ for i in list(a.keys()):
         a[i].remove(456)
     except ValueError:
         continue
-
-print(a)
+a = [0,1]
+print(a[3])
