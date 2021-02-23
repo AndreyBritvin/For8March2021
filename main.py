@@ -1,9 +1,9 @@
 # import telegram
 from questions import questions
-
+import copy
 # import logging
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, Bot
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, Bot, ParseMode
 from telegram.ext import MessageHandler, Filters, Updater, CommandHandler, CallbackQueryHandler, CallbackContext
 
 # logging.basicConfig(
@@ -22,10 +22,14 @@ teams = {}  # name: [[id], keyboard], ---total num of correct---
 isTask = True
 
 
-def getNameById(id, d):
+def getNameById(id, d, place=1):
     for i in list(d.keys()):
-        for idToFind in d[i][1]:
-            if idToFind == id:
+        if place==1:
+            for idToFind in d[i][place]:
+                if idToFind == id:
+                    return str(i)
+        elif place==2:
+            if d[i][place] == id:
                 return str(i)
     return None
 
@@ -109,6 +113,7 @@ def button(update: Update, context: CallbackContext) -> None:
     if query.data == "stat":
         statistic = "Статистика решенных задач по командам:\n"
 
+        """
         num_team = {}
         for i in list(teams.keys()):
             # name = teams[i][1]
@@ -122,12 +127,26 @@ def button(update: Update, context: CallbackContext) -> None:
         print(sortSum)
         for i in range(len(sortSum)):
             statistic += str(i+1)+". "+num_team[sortSum[i]] + ": " + str(sortSum[i]) + "\n" #1. Name:res \n
+        """
+        teamsc = copy.deepcopy(teams)
+        num_team = []
+        for i in list(teams.keys()):
+            num_team.append(teams[i][2])
 
+        num_team.sort(reverse=True)
+        print(num_team)
+
+        for i in range(len(num_team)):
+            name = getNameById(num_team[i], teamsc, place=2)
+            del teamsc[name]
+            if name == getNameById(query.message.chat.id, teams):
+                name = "_"+name+"_"
+            statistic += str(i + 1) + ". " + name + ": " + str(num_team[i]) + "\n"  # 1. Name:res \n
 
         statistic += "\nВыберите задание и дайте на него ответ:"
         query.edit_message_text(text=statistic,
                                 reply_markup=InlineKeyboardMarkup(
-                                    teams[getNameById(query.message.chat.id, teams)][0]))
+                                    teams[getNameById(query.message.chat.id, teams)][0]), parse_mode=ParseMode.MARKDOWN)
 
     print(usernames)
 
@@ -145,7 +164,7 @@ def answers(update: Update, context: CallbackContext) -> None:
     # update.message.reply_text(update.message.text)
 
     if usernames[update.message.chat_id][3] == "Nothing":  # answer without question
-        update.message.reply_text("Выберите вопрос и дайте на него ответ")
+        update.message.reply_text("Чтобы показать задания, напишите /showTask")
 
     elif update.message.text in questions[usernames[update.message.chat_id][3]][1] and \
             getNameById(update.message.chat_id, teams) != getNameById(update.message.chat_id,
