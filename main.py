@@ -3,7 +3,7 @@ from questions import questions
 
 # import logging
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, Bot
 from telegram.ext import MessageHandler, Filters, Updater, CommandHandler, CallbackQueryHandler, CallbackContext
 
 # logging.basicConfig(
@@ -14,8 +14,12 @@ from telegram.ext import MessageHandler, Filters, Updater, CommandHandler, Callb
 X = 4
 Y = 3
 
-usernames = {}  # id:[name, num of correct answers, num of question, question], ---keyboard---
+#usernames = {451269878: ['Andrey', 0, -1, 'Nothing'], 588317655: ['Слава', 0, -1,
+#                                                                  'Nothing']}  # id:[name, num of correct answers, num of question, question], ---keyboard---
+usernames = {}
 teams = {}  # name: [[id], keyboard], ---total num of correct---
+
+isTask = True
 
 
 def getNameById(id, d):
@@ -35,7 +39,7 @@ def generateKeyboard(sizeX, sizeY):
 
     for i in range(sizeX):
         for j in range(sizeY):
-            keyboard[i][j] = InlineKeyboardButton(str(sizeY * (i) + j + 1), #+ "❌",
+            keyboard[i][j] = InlineKeyboardButton(str(sizeY * (i) + j + 1),  # + "❌",
                                                   callback_data=list(questions.keys())[sizeY * i + j])
     keyboard.append([InlineKeyboardButton("Посмотреть статистику", callback_data="stat")])
     return keyboard
@@ -43,6 +47,7 @@ def generateKeyboard(sizeX, sizeY):
 
 def start(update: Update, context: CallbackContext) -> None:
     # global keyboard
+    print("/start "+update.message.from_user.first_name)
     if update.message.chat_id not in list(usernames.keys()):
         # usernames[update.message.chat_id][3] = "Nothing"
         usernames[update.message.chat_id] = [str(update.message.from_user.first_name),
@@ -74,38 +79,56 @@ def button(update: Update, context: CallbackContext) -> None:
     # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
     query.answer()
     print(query.data)
+    if isTask:
+        if query.data == "MainMenu123":
+            query.edit_message_text(text="Выберите задание и дайте на него ответ",
+                                    reply_markup=InlineKeyboardMarkup(
+                                        teams[getNameById(query.message.chat.id, teams)][0]))
+            usernames[query.message.chat.id][3] = "Nothing"
 
-    if query.data == "MainMenu123":
-        query.edit_message_text(text="Выберите задание и дайте на него ответ",
-                                reply_markup=InlineKeyboardMarkup(teams[getNameById(query.message.chat.id, teams)][0]))
-        usernames[query.message.chat.id][3] = "Nothing"
+        elif query.data in list(questions.keys()):
+            # print(questions[query.data])
+            isSolved = questions[query.data][2]
+            toAppend = ""
+            print(getNameById(query.message.chat.id, isSolved))
+            print(isSolved)
+            if getNameById(query.message.chat.id, teams) in list(isSolved.keys()):
+                toAppend = "\n\nЭто задание было решено " + \
+                           usernames[isSolved[getNameById(query.message.chat.id, teams)][1][0]][0]
 
-    elif query.data in list(questions.keys()):
-        #print(questions[query.data])
-        isSolved = questions[query.data][2]
-        toAppend = ""
-        print(getNameById(query.message.chat.id, isSolved))
-        print(isSolved)
-        if getNameById(query.message.chat.id, teams) in list(isSolved.keys()):
-            toAppend = "\n\nЭто задание было решено " + usernames[isSolved[getNameById(query.message.chat.id, teams)][1][0]][0]
-
-        query.edit_message_text(text=str(questions[query.data][0]) + toAppend,
-                                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Вернуться к выбору заданий",
-                                                                                         callback_data="MainMenu123")]]))
-        usernames[query.message.chat.id][3] = query.data
-        usernames[query.message.chat.id][2] = list(questions.keys()).index(query.data) + 1
-        print(query.message.chat.id, " ", usernames[query.message.chat.id][2])
-
-    elif query.data == "stat":
+            query.edit_message_text(text=str(questions[query.data][0]) + toAppend,
+                                    reply_markup=InlineKeyboardMarkup(
+                                        [[InlineKeyboardButton("Вернуться к выбору заданий",
+                                                               callback_data="MainMenu123")]]))
+            usernames[query.message.chat.id][3] = query.data
+            usernames[query.message.chat.id][2] = list(questions.keys()).index(query.data) + 1
+            print(query.message.chat.id, " ", usernames[query.message.chat.id][2])
+    else:
+        query.edit_message_text(text="Выполнение заданий приостановлено/ещё не началось. Чтобы показать задания,"
+                                     " напишите /showTask")
+    if query.data == "stat":
         statistic = "Статистика решенных задач по командам:\n"
+
+        num_team = {}
         for i in list(teams.keys()):
             # name = teams[i][1]
-            summa = teams[i][2]
+            #summa = teams[i][2]
+            num_team[teams[i][2]] = str(i)
 
-            statistic += str(i) + ": " + str(summa) + "\n"
+            #statistic += str(i) + ": " + str(summa) + "\n"
+        print(num_team)
+        sortSum = list(num_team.keys())
+        sortSum.sort(reverse=True)
+        print(sortSum)
+        for i in range(len(sortSum)):
+            statistic += str(i+1)+". "+num_team[sortSum[i]] + ": " + str(sortSum[i]) + "\n" #1. Name:res \n
+
+
         statistic += "\nВыберите задание и дайте на него ответ:"
         query.edit_message_text(text=statistic,
-                                reply_markup=InlineKeyboardMarkup(teams[getNameById(query.message.chat.id, teams)][0]))
+                                reply_markup=InlineKeyboardMarkup(
+                                    teams[getNameById(query.message.chat.id, teams)][0]))
+
     print(usernames)
 
 
@@ -190,21 +213,23 @@ def createTeam(update: Update, context: CallbackContext) -> None:
         print(name)
         if getNameById(update.message.chat_id, teams) == None:
             teams[name] = [generateKeyboard(X, Y), [update.message.chat_id], 0]
-            update.message.reply_text("Команда " + name + " создана. Вы автоматически стали ее членом."
-                                                          " \nВыберите задание и дайте на него ответ:",
-                                      reply_markup=InlineKeyboardMarkup(teams[name][0]))
+            # update.message.reply_text("Команда " + name + " создана. Вы автоматически стали ее членом."
+            #                                             " \nВыберите задание и дайте на него ответ:",
+            #                         reply_markup=InlineKeyboardMarkup(teams[name][0]))
+            update.message.reply_text("Команда '" + name + "' создана\nЧтобы показать задания, отправьте /showTask")
 
         else:
-            if(name not in list(teams.keys())):
+            if (name not in list(teams.keys())):
                 teams[name] = [generateKeyboard(X, Y), [], 0]
-                update.message.reply_text("Команда " + name + " создана. Вы не стали ее членом автоматически, "
-                                                          "потому что уже состоите в другой команде."
-                                                          " Для вступления в эту команду, напишите /joinTeam "
-                                                      +name+" (на одной строчке!)")
+                update.message.reply_text("Команда '" + name + "' создана. Вы не стали ее членом автоматически, "
+                                                               "потому что уже состоите в другой команде."
+                                                               " Для вступления в эту команду, напишите /joinTeam "
+                                          + name + " (на одной строчке!). Чтобы показать задания,"
+                                                   " напишите /showTask")
             else:
-                update.message.reply_text("Команда " + name + " уже существует."
-                                                              " Для вступления в эту команду, напишите /joinTeam "
-                                          + name + " (на одной строчке!)")
+                update.message.reply_text("Команда '" + name + "' уже существует."
+                                                               " Для вступления в эту команду, напишите /joinTeam "
+                                          + name + " (на одной строчке!) Чтобы показать задания, напишите /showTask")
 
 
 def joinTeam(update: Update, context: CallbackContext) -> None:
@@ -228,14 +253,56 @@ def joinTeam(update: Update, context: CallbackContext) -> None:
             update.message.reply_text("Такой команды не существует. Для вступления в уже существующую команду"
                                       " напишите /joinTeam _Название команды_ (на одной строчке!)")
         else:
-            update.message.reply_text("Вы вступили в команду " + name + "\nВыберите задание и дайте на него ответ:",
-                                  reply_markup=InlineKeyboardMarkup(teams[name][0]))
+            #   update.message.reply_text("Вы вступили в команду " + name + "\nВыберите задание и дайте на него ответ:",
+            #                        reply_markup=InlineKeyboardMarkup(teams[name][0]))
+            update.message.reply_text(
+                "Вы вступили в команду '" + name + "'\nЧтобы показать задания, отправьте /showTask")
 
 
 def status(update: Update, context: CallbackContext) -> None:
     update.message.reply_text(str(usernames))
     update.message.reply_text(str(teams))
     # update.message.reply_text(str(getNameById(451269878)))
+
+
+def showTask(update: Update, context: CallbackContext) -> None:
+    if isTask:
+        try:
+            update.message.reply_text(text="Выберите задание и дайте на него ответ",
+                                      reply_markup=InlineKeyboardMarkup(
+                                          teams[getNameById(update.message.chat_id, teams)][0]))
+        except KeyError:
+            update.message.reply_text(text="Вы не состоите ни в одной команде. Напишите /start для подорбностей")
+    else:
+        update.message.reply_text(text="Дождитесь разрешения показа")
+
+
+def enableTask(update: Update, context: CallbackContext) -> None:
+    global isTask
+    isTask = True
+    update.message.reply_text(text="Задания разрешены")
+
+
+def disableTask(update: Update, context: CallbackContext) -> None:
+    global isTask
+    isTask = False
+    update.message.reply_text(text="Задания запрещены")
+
+
+def mailing(update: Update, context: CallbackContext) -> None:
+    bot = Bot(token="1680109532:AAEVxsAfCEwlkPtRPUwn2SCJyW8pIdvLjcs")
+    for i in list(usernames.keys()):
+        bot.send_message(chat_id=int(i), text=str(update.message.text).split("/mailing1 ")[1])
+     #   bot.send_sticker(chat_id=int(i),
+     #                    sticker='CAACAgIAAxkBAAIBZ2A0nt7nzJMJnbzdEbBEVqw6aWk-AAIQAAPdzt44vqSCOa4N-EAeBA')
+
+
+def mailingReady(update: Update, context: CallbackContext) -> None:
+    bot = Bot(token="1680109532:AAEVxsAfCEwlkPtRPUwn2SCJyW8pIdvLjcs")
+    for i in list(usernames.keys()):
+        bot.send_message(chat_id=int(i), text="За то, что вы такие умные, отправляетесь в")
+        bot.send_sticker(chat_id=int(i),
+                         sticker='CAACAgIAAxkBAAIBZ2A0nt7nzJMJnbzdEbBEVqw6aWk-AAIQAAPdzt44vqSCOa4N-EAeBA')
 
 
 def main():
@@ -246,16 +313,27 @@ def main():
     updater.dispatcher.add_handler(CommandHandler('start', start))
     updater.dispatcher.add_handler(CallbackQueryHandler(button))
     updater.dispatcher.add_handler(CommandHandler('help', help_command))
-    updater.dispatcher.add_handler(CommandHandler('status', status))
 
-    updater.dispatcher.add_handler(CommandHandler('restartTotal', restartTotal))
+    # restarts
     # updater.dispatcher.add_handler(CommandHandler('help', help_command))
     # updater.dispatcher.add_handler(CommandHandler('help', help_command))
 
+    # teams
     updater.dispatcher.add_handler(CommandHandler('createTeam', createTeam))
     updater.dispatcher.add_handler(CommandHandler('joinTeam', joinTeam))
 
-    updater.dispatcher.add_handler(MessageHandler(Filters.text, answers))
+    # tasks
+    updater.dispatcher.add_handler(CommandHandler('showTask', showTask))
+    updater.dispatcher.add_handler(CommandHandler('enableTask', enableTask))
+    updater.dispatcher.add_handler(CommandHandler('disableTask', disableTask))
+
+    # for admin
+    updater.dispatcher.add_handler(CommandHandler('mailing1', mailing))
+    updater.dispatcher.add_handler(CommandHandler('mailingReady', mailingReady))
+    updater.dispatcher.add_handler(CommandHandler('status', status))
+    updater.dispatcher.add_handler(CommandHandler('restartTotal', restartTotal))
+
+    updater.dispatcher.add_handler(MessageHandler(Filters.all, answers))
     # Start the Bot
     updater.start_polling()
 
