@@ -15,6 +15,7 @@ for i in list(a.keys()):
 a = [0,1]"""
 a = {2: 'hh1', 1:"hhh2"}
 #s = list(a.keys())#.sort(reverse=True)
-s = [2,3,4,1]
-s.sort()
-print(s)
+#s = [2,3,4,1]
+#s.sort()
+#print(s)
+print(3 in list(a.keys()))
