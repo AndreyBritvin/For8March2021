@@ -13,28 +13,31 @@ from telegram.ext import MessageHandler, Filters, Updater, CommandHandler, Callb
 # keyboard = []
 X = 5
 Y = 4
-TOKEN = "1680109532:AAEVxsAfCEwlkPtRPUwn2SCJyW8pIdvLjcs"
+TOKEN = "TOKEN"
 # usernames = {451269878: ['Andrey', 0, -1, 'Nothing'], 588317655: ['Слава', 0, -1,
 #                                                                  'Nothing']}  # id:[name, num of correct answers, num of question, question], ---keyboard---
 usernames = {}
 teams = {"Большой брат":["",[],0,-10000,-10000]}  # name: [[],[id], total num of correct, total num of uncorrect, cor-uncor]
 
-isTask = True
+isTask = False
+penaltyCount = 0.5
 
-
-def getNameById(id, d, place=1):
+def getNameById(id, d, place=1, isUsers = False):
     for i in list(d.keys()):
-        if place == 1:
+        if place == 1 and not isUsers:
             for idToFind in d[i][place]:
                 if idToFind == id:
                     return str(i)
         elif place != 1:
             if d[i][place] == id:
                 return str(i)
+        elif place == 1 and isUsers:
+            if d[i][place] == id:
+                return str(i)
     return None
 
 
-def generateKeyboard(sizeX, sizeY):
+def generateKeyboard(sizeX, sizeY, isAsmin = False):
     keyboard = []
     for i in range(sizeX):
         keyboard.append([])
@@ -46,9 +49,12 @@ def generateKeyboard(sizeX, sizeY):
             keyboard[i][j] = InlineKeyboardButton(str(sizeY * (i) + j + 1),  # + "❌",
                                                   callback_data=list(questions.keys())[sizeY * i + j])
     keyboard.append([InlineKeyboardButton("Посмотреть статистику", callback_data="stat")])
+    if isAsmin:
+        keyboard.append([InlineKeyboardButton("Статистика по игрокам", callback_data="stat2"),
+                         InlineKeyboardButton("Статистика по командам", callback_data="stat3")])
     return keyboard
 
-teamskb = {"Большой брат":[generateKeyboard(X,Y)]} #name:[keyboard]
+teamskb = {"Большой брат":[generateKeyboard(X,Y, isAsmin=True)]} #name:[keyboard]
 
 def start(update: Update, context: CallbackContext) -> None:
     # global keyboard
@@ -153,7 +159,43 @@ def button(update: Update, context: CallbackContext) -> None:
         query.edit_message_text(text=statistic,
                                 reply_markup=InlineKeyboardMarkup(
                                     teamskb[getNameById(query.message.chat.id, teams)][0]), parse_mode=ParseMode.HTML)
+    if query.data == "stat2":
+        nums = []
+        users = copy.deepcopy(usernames)
+        for i in list(usernames.keys()):
+            nums.append(usernames[i][1])
+        nums.sort(reverse=True)
+        statistic = "Статистика решенных задач по игрокам:\n"
+        for i in range(len(nums)):
+            #print(usernames)
+            #print(getNameById(nums[i], users, 1, True))
+            name = usernames[int(getNameById(nums[i], users, 1, True))][0]
+            statistic+=str(i+1)+". "+name+": "+str(nums[i])+"\n"
+            del users[int(getNameById(nums[i], users, 1, True))]
 
+        query.edit_message_text(text=statistic,
+                                reply_markup=InlineKeyboardMarkup(
+                                    teamskb[getNameById(query.message.chat.id, teams)][0]), parse_mode=ParseMode.HTML)
+
+    if query.data == "stat3":
+        num_team = {}
+        statistic = "Статистика решенных задач по командам (без штрафов):\n"
+        for i in list(teams.keys()):
+            # name = teams[i][1]
+            # summa = teams[i][2]
+            num_team[teams[i][2]] = str(i)
+
+            # statistic += str(i) + ": " + str(summa) + "\n"
+        #print(num_team)
+        sortSum = list(num_team.keys())
+        sortSum.sort(reverse=True)
+        #print(sortSum)
+        for i in range(len(sortSum)):
+            statistic += str(i + 1) + ". " + num_team[sortSum[i]] + ": " + str(sortSum[i]) + "\n"  # 1. Name:res \n
+
+        query.edit_message_text(text=statistic,
+                                reply_markup=InlineKeyboardMarkup(
+                                    teamskb[getNameById(query.message.chat.id, teams)][0]), parse_mode=ParseMode.HTML)
     print(usernames)
 
 
@@ -218,8 +260,8 @@ def answers(update: Update, context: CallbackContext) -> None:
                                   reply_markup=InlineKeyboardMarkup(
                                       teamskb[getNameById(update.message.chat_id, teams)][0]))
     else:  # answer incorrect
-        teams[getNameById(update.message.chat_id, teams)][3] += 1  # for team
-        teams[getNameById(update.message.chat_id, teams)][4] -= 1  # for team
+        teams[getNameById(update.message.chat_id, teams)][3] += penaltyCount  # for team
+        teams[getNameById(update.message.chat_id, teams)][4] -= penaltyCount  # for team
         update.message.reply_text("Ответ неверный ❌ \nПопробуйте ещё")
 
 
@@ -327,8 +369,8 @@ def mailing(update: Update, context: CallbackContext) -> None:
     bot = Bot(token=TOKEN)
     for i in list(usernames.keys()):
         bot.send_message(chat_id=int(i), text=str(update.message.text).split("/mailing1 ")[1])
-        bot.send_sticker(chat_id=int(i),
-                        sticker='CAACAgIAAxkBAAIBZ2A0nt7nzJMJnbzdEbBEVqw6aWk-AAIQAAPdzt44vqSCOa4N-EAeBA')
+     #   bot.send_sticker(chat_id=int(i),
+     #                   sticker='CAACAgIAAxkBAAIBZ2A0nt7nzJMJnbzdEbBEVqw6aWk-AAIQAAPdzt44vqSCOa4N-EAeBA')
 
 
 def mailingReady(update: Update, context: CallbackContext) -> None:
@@ -344,7 +386,17 @@ def penalty(update: Update, context: CallbackContext) -> None:
     teams[name][3]+=num
     teams[name][4] -= num
 
-
+def thanks (update: Update, context: CallbackContext) -> None:
+    bot = Bot(token=TOKEN)
+    for i in list(usernames.keys()):
+        bot.send_message(chat_id=int(i), text="Над ботом работал: Андрей\n"
+                                              "Вопросы придумали: Артём, Кирилл П., Слава\n"
+                                              "Стикеры рисовал: Миша С.\n"
+                                              "Бота тестировали: Андрей, Слава, Миша С., Артём, Кирилл Н., Саша Р., Максим С., Кирилл П., Саша Н., Влад, Рома\n"
+                                              "\n"
+                                              "Огромное спасибо им! С наступающим праздником!🥳🎉\n\n\n"
+                                              "P.S. Код на бота: https://github.com/AndreyBritvin/For8March2021\n"
+                                              "Ссылка на стикеры: https://t.me/addstickers/B_853_class")
 
 def main():
     # generateKeyboard(X, Y)
@@ -374,6 +426,7 @@ def main():
     updater.dispatcher.add_handler(CommandHandler('status', status))
     updater.dispatcher.add_handler(CommandHandler('restartTotal', restartTotal))
     updater.dispatcher.add_handler(CommandHandler('penalty', penalty))
+    updater.dispatcher.add_handler(CommandHandler('thanks', thanks))
 
     updater.dispatcher.add_handler(MessageHandler(Filters.all, answers))
     # Start the Bot

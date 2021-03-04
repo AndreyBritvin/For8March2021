@@ -13,9 +13,12 @@ for i in list(a.keys()):
     except ValueError:
         continue
 a = [0,1]"""
-a = {2: 'hh1', 1:"hhh2"}
+#a = {2: 'hh1', 1:"hhh2"}
 #s = list(a.keys())#.sort(reverse=True)
 #s = [2,3,4,1]
 #s.sort()
 #print(s)
-print(3 in list(a.keys()))
+a = {"a":[1,2], "b":[3,4]}
+for i in a:
+    print(i)
+#print(3 in list(a.keys()))
